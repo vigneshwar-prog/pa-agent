@@ -6,8 +6,8 @@ import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="Vigneshwar's Second Brain", page_icon="🧠")
-st.title("🧠 Vigneshwar's Second Brain")
+st.set_page_config(page_title="Knowledge Assistant", page_icon="🧠")
+st.title("🧠 Knowledge Assistant")
 
 # ── Session state ──────────────────────────────────────────────────────────────
 if "session_id" not in st.session_state:
@@ -23,7 +23,7 @@ for msg in st.session_state.messages:
             st.caption(f"Sources: {', '.join(msg['sources'])}")
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
-if prompt := st.chat_input("Ask me anything about Vigneshwar…"):
+if prompt := st.chat_input("Ask me anything…"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)

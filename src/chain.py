@@ -29,9 +29,9 @@ _llm = ChatOpenAI(
 )
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
-_SYSTEM_PROMPT = """You are a helpful assistant that answers questions about Vigneshwar \
-based strictly on the provided context. If the context does not contain enough information \
-to answer, say "I don't have enough information about that in my knowledge base."
+_SYSTEM_PROMPT = """You are a helpful assistant that answers questions based strictly \
+on the provided context. If the context does not contain enough information to answer, \
+say "I don't have enough information about that in my knowledge base."
 
 Do not make up facts. Be concise and direct.
 
@@ -51,8 +51,8 @@ def _format_docs(docs: list[Document]) -> str:
 
 
 # ── Retriever ─────────────────────────────────────────────────────────────────
-def _build_retriever():
-    vs = get_vectorstore()
+def _build_retriever(namespace: str | None = None):
+    vs = get_vectorstore(namespace=namespace)
     return vs.as_retriever(
         search_type="mmr",
         search_kwargs={
@@ -64,9 +64,14 @@ def _build_retriever():
 
 
 # ── Chain assembly (pure LCEL) ─────────────────────────────────────────────────
-def build_chain() -> RunnableWithMessageHistory:
-    """Build and return the conversational RAG chain using pure LCEL."""
-    retriever = _build_retriever()
+def build_chain(namespace: str | None = None) -> RunnableWithMessageHistory:
+    """Build and return the conversational RAG chain using pure LCEL.
+
+    Args:
+        namespace: Pinecone namespace to query (e.g. "alice", "networking-101").
+                   Defaults to PINECONE_NAMESPACE env var, then "default".
+    """
+    retriever = _build_retriever(namespace=namespace)
 
     # Retrieve docs, keep them accessible for sources AND format for prompt
     rag_chain = (
@@ -99,12 +104,13 @@ def build_chain() -> RunnableWithMessageHistory:
     return conversational_rag
 
 
-# Singleton chain instance
-_chain: RunnableWithMessageHistory | None = None
+# Cache chains per namespace
+_chains: dict[str, RunnableWithMessageHistory] = {}
 
 
-def get_chain() -> RunnableWithMessageHistory:
-    global _chain
-    if _chain is None:
-        _chain = build_chain()
-    return _chain
+def get_chain(namespace: str | None = None) -> RunnableWithMessageHistory:
+    global _chains
+    key = namespace or "default"
+    if key not in _chains:
+        _chains[key] = build_chain(namespace=namespace)
+    return _chains[key]

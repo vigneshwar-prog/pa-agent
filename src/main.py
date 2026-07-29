@@ -13,12 +13,15 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    print("🧠 Vigneshwar's Second Brain — CLI")
+    print("🧠 Knowledge Assistant — CLI")
     print("Type 'exit' or 'quit' to stop.\n")
 
-    chain = get_chain()
+    namespace = input("Namespace (press Enter for 'default'): ").strip() or "default"
+    print(f"Using namespace: '{namespace}'\n")
+
+    chain = get_chain(namespace=namespace)
     session_id = str(uuid.uuid4())
-    logger.info("Session started: %s", session_id)
+    logger.info("Session started: %s | namespace: %s", session_id, namespace)
 
     while True:
         try:

@@ -36,7 +36,7 @@ def get_embeddings() -> HuggingFaceEmbeddings:
 # ── Pinecone setup ─────────────────────────────────────────────────────────────
 _PINECONE_API_KEY  = os.getenv("PINECONE_API_KEY", "")
 _PINECONE_INDEX    = os.getenv("PINECONE_INDEX", "pa-second-brain")
-_PINECONE_NS       = os.getenv("PINECONE_NAMESPACE", "personal")
+_DEFAULT_NS        = os.getenv("PINECONE_NAMESPACE", "default")
 
 # Dimension must match the embedding model
 _EMBEDDING_DIM: dict[str, int] = {
@@ -45,7 +45,8 @@ _EMBEDDING_DIM: dict[str, int] = {
     "sentence-transformers/all-MiniLM-L6-v2": 384,
 }
 
-_vectorstore: PineconeVectorStore | None = None
+# Cache one PineconeVectorStore per namespace
+_vectorstore_cache: dict[str, PineconeVectorStore] = {}
 
 
 def _ensure_pinecone_index() -> None:
@@ -66,10 +67,11 @@ def _ensure_pinecone_index() -> None:
         logger.debug("Pinecone index '%s' already exists.", _PINECONE_INDEX)
 
 
-def get_vectorstore() -> PineconeVectorStore:
-    """Return a singleton PineconeVectorStore."""
-    global _vectorstore
-    if _vectorstore is None:
+def get_vectorstore(namespace: str | None = None) -> PineconeVectorStore:
+    """Return a PineconeVectorStore for the given namespace (cached per namespace)."""
+    global _vectorstore_cache
+    ns = namespace or _DEFAULT_NS
+    if ns not in _vectorstore_cache:
         if not _PINECONE_API_KEY:
             raise EnvironmentError(
                 "PINECONE_API_KEY is not set. Copy .env.example to .env and fill in your key."
@@ -79,27 +81,28 @@ def get_vectorstore() -> PineconeVectorStore:
         logger.info(
             "Connecting to Pinecone index '%s' namespace='%s'",
             _PINECONE_INDEX,
-            _PINECONE_NS,
+            ns,
         )
-        _vectorstore = PineconeVectorStore(
+        _vectorstore_cache[ns] = PineconeVectorStore(
             index_name=_PINECONE_INDEX,
             embedding=embeddings,
-            namespace=_PINECONE_NS,
+            namespace=ns,
         )
-    return _vectorstore
+    return _vectorstore_cache[ns]
 
 
 # ── Filtered search (category metadata) ───────────────────────────────────────
 
-def filtered_search(query: str, category: str, k: int = 6) -> list:
+def filtered_search(query: str, category: str, k: int = 6, namespace: str | None = None) -> list:
     """
     Semantic search filtered by metadata category.
     Pinecone supports native metadata filtering — no post-hoc needed.
     """
-    vs = get_vectorstore()
+    ns = namespace or _DEFAULT_NS
+    vs = get_vectorstore(namespace=ns)
     return vs.similarity_search(
         query,
         k=k,
         filter={"category": {"$eq": category}},
-        namespace=_PINECONE_NS,
+        namespace=ns,
     )

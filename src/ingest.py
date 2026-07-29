@@ -31,14 +31,35 @@ SPLITTER = RecursiveCharacterTextSplitter(
     separators=["\n\n", "\n", ". ", " ", ""],
 )
 
-# ── Keyword → category mapping ─────────────────────────────────────────────────
+# ── Generic keyword → category mapping ────────────────────────────────────────
+# Categories are domain-agnostic — works for personal docs, tech docs,
+# learning material, runbooks, or any knowledge base.
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "skills":      ["python", "langchain", "sql", "aws", "skill", "proficient", "tool"],
-    "experience":  ["worked", "company", "role", "job", "position", "employer", "project"],
-    "education":   ["degree", "university", "college", "studied", "graduated", "gpa"],
-    "personality": ["value", "strength", "weakness", "personality", "work style", "prefer"],
-    "goals":       ["goal", "aspire", "want to", "plan to", "future", "ambition"],
-    "hobbies":     ["hobby", "interest", "enjoy", "leisure", "weekend", "passion"],
+    # Personal / bio
+    "personal":       ["resume", "cv", "career", "hobby", "interest", "personality",
+                       "goal", "aspire", "strength", "weakness", "about me", "profile"],
+    # Professional skills & experience
+    "experience":     ["worked", "company", "role", "job", "position", "employer",
+                       "project", "client", "responsible", "led", "managed", "delivered"],
+    "skills":         ["python", "java", "sql", "aws", "skill", "proficient", "tool",
+                       "framework", "technology", "stack", "language", "platform"],
+    "education":      ["degree", "university", "college", "studied", "graduated",
+                       "course", "certification", "gpa", "diploma", "training"],
+    # Technical knowledge domains
+    "technical":      ["architecture", "design", "system", "api", "database", "cloud",
+                       "docker", "kubernetes", "microservice", "infrastructure", "config",
+                       "protocol", "network", "ospf", "bgp", "rest", "grpc"],
+    "troubleshooting":["error", "issue", "bug", "fix", "resolve", "debug", "traceback",
+                       "exception", "fail", "crash", "timeout", "symptom", "root cause",
+                       "workaround", "known issue", "incident", "alert", "log"],
+    "learning":       ["chapter", "section", "definition", "concept", "explain",
+                       "understand", "theory", "principle", "example", "exercise",
+                       "summary", "note", "lecture", "lesson", "module", "topic"],
+    "reference":      ["specification", "rfc", "standard", "manual", "guide",
+                       "documentation", "syntax", "command", "parameter", "flag",
+                       "option", "table", "list", "appendix", "glossary"],
+    "procedure":      ["step", "how to", "install", "configure", "setup", "deploy",
+                       "run", "execute", "procedure", "process", "workflow", "checklist"],
 }
 
 INGESTION_LOG_PATH = Path("data/ingestion_log.json")
@@ -62,6 +83,11 @@ def _sha256(text: str) -> str:
 
 
 def _tag_category(text: str) -> str:
+    """
+    Assign a category to a chunk based on keyword presence.
+    Returns the FIRST matching category (order in dict = priority).
+    Falls back to 'general' if nothing matches.
+    """
     text_lower = text.lower()
     for category, keywords in CATEGORY_KEYWORDS.items():
         if any(kw in text_lower for kw in keywords):
@@ -109,7 +135,7 @@ def _load_image(path: Path) -> list[Document]:
 
 
 def _load_audio(path: Path) -> list[Document]:
-    from faster_whisper import WhisperModel  # local model — free, no API key
+    from faster_whisper import WhisperModel
     model = WhisperModel("base", device="cpu", compute_type="int8")
     segments, _ = model.transcribe(str(path))
     text = " ".join(seg.text for seg in segments)
@@ -150,10 +176,18 @@ def load_file(path: str | Path) -> list[Document]:
 
 # ── Ingestion pipeline ─────────────────────────────────────────────────────────
 
-def ingest(file_path: str | Path) -> int:
+def ingest(file_path: str | Path, namespace: str = "default") -> int:
     """
     Load → chunk → tag → deduplicate → upsert to Pinecone.
-    Returns the number of NEW chunks upserted.
+
+    Args:
+        file_path: Path to the document to ingest.
+        namespace:  Pinecone namespace — logical partition for a user or
+                    knowledge domain (e.g. "alice", "networking-101").
+                    Defaults to "default".
+
+    Returns:
+        Number of NEW chunks upserted.
     """
     docs = load_file(file_path)
     chunks = SPLITTER.split_documents(docs)
@@ -162,12 +196,15 @@ def ingest(file_path: str | Path) -> int:
     new_chunks: list[Document] = []
 
     for chunk in chunks:
-        content_hash = _sha256(chunk.page_content)
+        # Include namespace in the hash key so the same doc ingested into
+        # two different namespaces gets separate entries.
+        content_hash = _sha256(f"{namespace}:{chunk.page_content}")
         if content_hash in ingestion_log:
-            continue  # already ingested
+            continue
 
-        chunk.metadata["category"] = _tag_category(chunk.page_content)
+        chunk.metadata["category"]     = _tag_category(chunk.page_content)
         chunk.metadata["content_hash"] = content_hash
+        chunk.metadata["namespace"]    = namespace
 
         new_chunks.append(chunk)
         ingestion_log[content_hash] = "pending"
@@ -176,11 +213,10 @@ def ingest(file_path: str | Path) -> int:
         logger.info("No new chunks — nothing to upsert.")
         return 0
 
-    logger.info("Upserting %d new chunks to Pinecone…", len(new_chunks))
-    vs = get_vectorstore()
+    logger.info("Upserting %d new chunks to Pinecone (namespace=%s)…", len(new_chunks), namespace)
+    vs = get_vectorstore(namespace=namespace)
     vs.add_documents(new_chunks)
 
-    # Mark as ingested
     for chunk in new_chunks:
         ingestion_log[chunk.metadata["content_hash"]] = "ingested"
 
@@ -194,7 +230,8 @@ def ingest(file_path: str | Path) -> int:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python -m src.ingest <file_path>")
+        print("Usage: python -m src.ingest <file_path> [namespace]")
         sys.exit(1)
-    count = ingest(sys.argv[1])
-    print(f"✅ Upserted {count} new chunks.")
+    ns = sys.argv[2] if len(sys.argv) > 2 else "default"
+    count = ingest(sys.argv[1], namespace=ns)
+    print(f"✅ Upserted {count} new chunks into namespace '{ns}'.")

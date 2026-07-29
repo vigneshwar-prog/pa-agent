@@ -14,7 +14,7 @@ from src.logger import get_logger
 load_dotenv()
 logger = get_logger(__name__)
 
-app = FastAPI(title="PA Second Brain", version="1.0.0")
+app = FastAPI(title="Knowledge Assistant API", version="1.0.0")
 
 # Prometheus metrics at /metrics
 Instrumentator().instrument(app).expose(app)
@@ -25,11 +25,13 @@ Instrumentator().instrument(app).expose(app)
 class AskRequest(BaseModel):
     question: str
     session_id: str = ""
+    namespace: str = ""   # Pinecone namespace — isolates one user/domain from another
 
 
 class AskResponse(BaseModel):
     answer: str
     session_id: str
+    namespace: str
     sources: list[str]
 
 
@@ -38,10 +40,11 @@ class AskResponse(BaseModel):
 @app.post("/ask", response_model=AskResponse)
 async def ask(req: AskRequest) -> AskResponse:
     session_id = req.session_id or str(uuid.uuid4())
-    logger.info("Session=%s | question=%r", session_id, req.question[:80])
+    namespace = req.namespace or None
+    logger.info("Session=%s | namespace=%s | question=%r", session_id, namespace, req.question[:80])
 
     try:
-        chain = get_chain()
+        chain = get_chain(namespace=namespace)
         result = chain.invoke(
             {"input": req.question},
             config={"configurable": {"session_id": session_id}},
@@ -56,6 +59,7 @@ async def ask(req: AskRequest) -> AskResponse:
     return AskResponse(
         answer=result["answer"],
         session_id=session_id,
+        namespace=req.namespace,
         sources=sources,
     )
 
