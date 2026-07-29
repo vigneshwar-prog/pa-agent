@@ -39,7 +39,7 @@ def main() -> None:
         )
         print(f"\nAssistant: {result['answer']}\n")
 
-        sources = {d.metadata.get("source", "unknown") for d in result.get("context", [])}
+        sources = {d.metadata.get("source", "unknown") for d in result.get("source_docs", [])}
         if sources:
             print(f"  Sources: {', '.join(sources)}\n")
 

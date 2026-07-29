@@ -42,6 +42,7 @@ _PINECONE_NS       = os.getenv("PINECONE_NAMESPACE", "personal")
 _EMBEDDING_DIM: dict[str, int] = {
     "BAAI/bge-small-en-v1.5": 384,
     "BAAI/bge-large-en-v1.5": 1024,
+    "sentence-transformers/all-MiniLM-L6-v2": 384,
 }
 
 _vectorstore: PineconeVectorStore | None = None

@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import os
+from operator import itemgetter
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.documents import Document
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from src.logger import get_logger
 from src.vectorstore import get_vectorstore
@@ -17,10 +19,12 @@ from src.vectorstore import get_vectorstore
 load_dotenv()
 logger = get_logger(__name__)
 
-# ── LLM ───────────────────────────────────────────────────────────────────────
-_llm = ChatOllama(
-    model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
-    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+# ── LLM — ClaudeGate (OpenAI-compatible gateway at localhost:8080) ─────────────
+# Uses claude-sonnet-4.5 by default. Swap model name via CLAUDEGATE_MODEL env var.
+_llm = ChatOpenAI(
+    model=os.getenv("CLAUDEGATE_MODEL", "claude-sonnet-4.5"),
+    base_url=os.getenv("CLAUDEGATE_BASE_URL", "http://localhost:8080/v1"),
+    api_key="dummy",          # gateway handles auth — key value doesn't matter
     temperature=0.3,
 )
 
@@ -40,6 +44,12 @@ _prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}"),
 ])
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def _format_docs(docs: list[Document]) -> str:
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
 # ── Retriever ─────────────────────────────────────────────────────────────────
 def _build_retriever():
     vs = get_vectorstore()
@@ -52,14 +62,25 @@ def _build_retriever():
         },
     )
 
-# ── Chain assembly ─────────────────────────────────────────────────────────────
-def build_chain() -> RunnableWithMessageHistory:
-    """Build and return the conversational RAG chain."""
-    retriever = _build_retriever()
-    combine_docs_chain = create_stuff_documents_chain(_llm, _prompt)
-    rag_chain = create_retrieval_chain(retriever, combine_docs_chain)
 
-    # In-memory session history (swap to Redis for production)
+# ── Chain assembly (pure LCEL) ─────────────────────────────────────────────────
+def build_chain() -> RunnableWithMessageHistory:
+    """Build and return the conversational RAG chain using pure LCEL."""
+    retriever = _build_retriever()
+
+    # Retrieve docs, keep them accessible for sources AND format for prompt
+    rag_chain = (
+        RunnablePassthrough.assign(
+            context=itemgetter("input") | retriever | _format_docs,
+            # stash raw docs so we can return sources
+            source_docs=itemgetter("input") | retriever,
+        )
+        | RunnablePassthrough.assign(
+            answer=_prompt | _llm | StrOutputParser()
+        )
+    )
+
+    # In-memory session history — swap to Redis for production
     _store: dict[str, ChatMessageHistory] = {}
 
     def get_session_history(session_id: str) -> ChatMessageHistory:

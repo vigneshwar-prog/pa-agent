@@ -9,7 +9,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import tiktoken
 
 from src.logger import get_logger

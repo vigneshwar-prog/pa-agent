@@ -51,7 +51,7 @@ async def ask(req: AskRequest) -> AskResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     sources = list(
-        {d.metadata.get("source", "unknown") for d in result.get("context", [])}
+        {d.metadata.get("source", "unknown") for d in result.get("source_docs", [])}
     )
     return AskResponse(
         answer=result["answer"],
