@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    print("🧠 Knowledge Assistant — CLI")
+    print("🧠 Personal Assistant RAG — CLI")
     print("Type 'exit' or 'quit' to stop.\n")
 
     namespace = input("Namespace (press Enter for 'default'): ").strip() or "default"

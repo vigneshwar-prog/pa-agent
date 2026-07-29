@@ -14,7 +14,7 @@ from src.logger import get_logger
 load_dotenv()
 logger = get_logger(__name__)
 
-app = FastAPI(title="Knowledge Assistant API", version="1.0.0")
+app = FastAPI(title="Personal Assistant RAG API", version="1.0.0")
 
 # Prometheus metrics at /metrics
 Instrumentator().instrument(app).expose(app)

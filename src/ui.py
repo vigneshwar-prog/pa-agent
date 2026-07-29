@@ -6,8 +6,8 @@ import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="Knowledge Assistant", page_icon="🧠")
-st.title("🧠 Knowledge Assistant")
+st.set_page_config(page_title="Personal Assistant RAG", page_icon="🧠")
+st.title("🧠 Personal Assistant RAG")
 
 # ── Session state ──────────────────────────────────────────────────────────────
 if "session_id" not in st.session_state:
