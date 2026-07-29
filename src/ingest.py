@@ -142,6 +142,70 @@ def _load_audio(path: Path) -> list[Document]:
     return [Document(page_content=text, metadata={"source": str(path)})]
 
 
+def _load_vtt(path: Path) -> list[Document]:
+    """
+    Parse a WebVTT subtitle/transcript file (.vtt).
+
+    WebVTT looks like:
+        WEBVTT
+
+        1 "Speaker Name" (id)
+        00:00:05.184 --> 00:00:25.129
+        The spoken text here.
+
+    Strategy:
+    - Strip cue headers (index lines, timestamps, WEBVTT marker)
+    - Preserve speaker attribution: prefix each cue with "Speaker: text"
+    - Return one Document with all transcript text joined — the chunker
+      will then split it into overlapping windows just like any other doc.
+    """
+    import re
+    raw = path.read_text(encoding="utf-8")
+    lines = raw.splitlines()
+
+    # Regex patterns
+    timestamp_re = re.compile(r"^\d{2}:\d{2}:\d{2}[\.,]\d{3}\s+-->\s+")
+    cue_index_re = re.compile(r'^\d+\s+"')   # e.g.  1 "Shruthi N" (...)
+    speaker_re   = re.compile(r'^\d+\s+"([^"]+)"')  # capture speaker name
+
+    segments: list[str] = []
+    current_speaker = ""
+    current_lines: list[str] = []
+
+    def flush():
+        if current_lines:
+            text = " ".join(current_lines).strip()
+            if text:
+                prefix = f"{current_speaker}: " if current_speaker else ""
+                segments.append(f"{prefix}{text}")
+
+    for line in lines:
+        line = line.strip()
+        if not line or line == "WEBVTT":
+            flush()
+            current_lines = []
+            continue
+        if timestamp_re.match(line):
+            # timestamp line — skip, we don't need timecodes
+            continue
+        m = speaker_re.match(line)
+        if m:
+            flush()
+            current_lines = []
+            current_speaker = m.group(1)
+            continue
+        if cue_index_re.match(line):
+            # plain numeric cue without a speaker string
+            flush()
+            current_lines = []
+            continue
+        current_lines.append(line)
+
+    flush()
+    full_text = "\n".join(segments)
+    return [Document(page_content=full_text, metadata={"source": str(path), "type": "transcript"})]
+
+
 _ROUTER: dict[str, Any] = {
     ".txt":  _load_txt,
     ".pdf":  _load_pdf,
@@ -157,6 +221,8 @@ _ROUTER: dict[str, Any] = {
     ".mp3":  _load_audio,
     ".wav":  _load_audio,
     ".m4a":  _load_audio,
+    ".vtt":  _load_vtt,
+    ".srt":  _load_vtt,   # SubRip has same text-extraction logic, close enough
 }
 
 
