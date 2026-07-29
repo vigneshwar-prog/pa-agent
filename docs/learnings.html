@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PA-Agent — Learnings & Exploration Log</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #7c6af7;
+    --accent2: #4fc3f7;
+    --green: #4caf80;
+    --yellow: #f5c542;
+    --red: #e57373;
+    --text: #e2e4ef;
+    --muted: #8b8fa8;
+    --code-bg: #12141f;
+    --radius: 10px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  /* ── Header ── */
+  header { margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+  header h1 { font-size: 1.8rem; color: var(--accent); letter-spacing: -0.5px; }
+  header p  { color: var(--muted); margin-top: 0.4rem; font-size: 0.95rem; }
+
+  /* ── Phase block ── */
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 2rem;
+    overflow: hidden;
+  }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+    background: #1e2133;
+  }
+  .phase-header:hover { background: #252840; }
+  .phase-header h2 { font-size: 1.05rem; flex: 1; }
+  .phase-badge {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge-done    { background: #1b3a2d; color: var(--green); }
+  .badge-active  { background: #2a2040; color: var(--accent); }
+  .badge-pending { background: #222435; color: var(--muted); }
+  .chevron { color: var(--muted); transition: transform 0.2s; font-size: 0.9rem; }
+  .phase-body { padding: 1.25rem; }
+
+  /* ── Sub-sections ── */
+  .subsection { margin-bottom: 1.75rem; }
+  .subsection:last-child { margin-bottom: 0; }
+  .subsection-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  /* ── Entry cards ── */
+  .entry {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .entry.gotcha  { border-left-color: var(--yellow); }
+  .entry.qa      { border-left-color: var(--accent2); }
+  .entry-date    { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; }
+  .entry h3      { font-size: 0.97rem; color: var(--text); margin-bottom: 0.5rem; }
+  .entry p       { color: #c5c8dc; font-size: 0.92rem; margin-bottom: 0.5rem; }
+  .entry p:last-child { margin-bottom: 0; }
+
+  /* ── Decision table ── */
+  .decision-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.75rem 1.25rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.91rem;
+  }
+  .decision-row:last-child { border-bottom: none; }
+  .decision-label { color: var(--accent); font-weight: 600; }
+  .decision-value { color: #c5c8dc; }
+
+  /* ── Code blocks ── */
+  pre {
+    background: #0a0b10;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    margin: 0.6rem 0;
+    line-height: 1.6;
+  }
+  code { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; }
+  p > code, li > code {
+    background: #1e2133;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--accent2);
+  }
+
+  /* ── Comparison table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 0.75rem 0; }
+  th { background: #1e2133; color: var(--accent); padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 0.45rem 0.75rem; border-bottom: 1px solid #1e2133; color: #c5c8dc; }
+  tr:last-child td { border-bottom: none; }
+  .yes { color: var(--green); }
+  .no  { color: var(--red); }
+
+  /* ── Collapsible JS ── */
+  .phase-body { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>🧠 PA-Agent — Learnings & Exploration Log</h1>
+    <p>Living document. Updated at the end of every phase. Covers decisions, concepts, gotchas, and Q&amp;A explored.</p>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 0 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>📐</span>
+      <h2>Phase 0 — Planning &amp; Architecture</h2>
+      <span class="phase-badge badge-done">Done</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+
+      <div class="subsection">
+        <div class="subsection-title">📚 Concepts &amp; Decisions</div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-27</div>
+          <h3>Why RAG instead of just prompting an LLM with all documents?</h3>
+          <p>LLMs have a context window limit. Even within the limit, they suffer from the <strong>"lost in the middle"</strong> problem — accuracy drops for facts buried in a long context. RAG solves this by finding only the relevant chunks and giving those to the LLM, not the whole document.</p>
+          <p>The flow: <code>Question → embed → similarity search → top-k chunks → LLM → answer</code></p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-27</div>
+          <h3>Core architecture decisions (Mode A — 100% free/local)</h3>
+          <div class="decision-row"><span class="decision-label">LLM</span><span class="decision-value">Ollama + llama3.1:8b — runs locally, no API key, no cost. 8b is the sweet spot: fast enough on CPU, smart enough for RAG.</span></div>
+          <div class="decision-row"><span class="decision-label">Embeddings</span><span class="decision-value">BAAI/bge-large-en-v1.5 — 1024-dim, top MTEB score among open models. Free, local, no API key. Requires <code>normalize_embeddings=True</code>.</span></div>
+          <div class="decision-row"><span class="decision-label">Vector DB</span><span class="decision-value">Pinecone (free tier) — managed, serverless, native metadata filtering, namespaces. Industry-standard on resumes.</span></div>
+          <div class="decision-row"><span class="decision-label">Framework</span><span class="decision-value">LangChain LCEL — explicit data flow, swap any component via env vars, huge ecosystem.</span></div>
+          <div class="decision-row"><span class="decision-label">API</span><span class="decision-value">FastAPI — async, Pydantic validation, auto OpenAPI docs, Prometheus-ready.</span></div>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-27</div>
+          <h3>Why Pinecone over FAISS?</h3>
+          <table>
+            <tr><th>Feature</th><th>FAISS</th><th>Pinecone</th></tr>
+            <tr><td>Metadata filtering</td><td class="no">Post-hoc in Python (slow)</td><td class="yes">Native server-side</td></tr>
+            <tr><td>Namespaces</td><td class="no">Separate index files</td><td class="yes">Built-in</td></tr>
+            <tr><td>Persistence</td><td class="no">Manual save/load</td><td class="yes">Always-on cloud</td></tr>
+            <tr><td>RAM usage</td><td class="no">Loads full index into RAM</td><td class="yes">Streamed from cloud</td></tr>
+            <tr><td>Cost</td><td class="yes">Free</td><td class="yes">Free tier (1 index, 2 GB)</td></tr>
+          </table>
+        </div>
+
+      </div><!-- /subsection -->
+
+      <div class="subsection">
+        <div class="subsection-title">❓ Questions Asked &amp; Explored</div>
+        <div class="entry qa">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Do we need LangGraph for this project?</h3>
+          <p><strong>Answer: No.</strong> LangGraph is for agentic workflows — loops, branching, tool decisions, multi-agent coordination. Our pipeline is linear: retrieve → format → generate. <code>RunnableWithMessageHistory</code> handles multi-turn memory without any graph. LangGraph becomes relevant only if you add "should I search again?" loops or multiple specialized agents.</p>
+        </div>
+      </div>
+
+    </div><!-- /phase-body -->
+  </div><!-- /phase -->
+
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 1 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>🔧</span>
+      <h2>Phase 1 — CLI Prototype (Ingest → Pinecone → Terminal Chat)</h2>
+      <span class="phase-badge badge-active">In Progress</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+
+      <div class="subsection">
+        <div class="subsection-title">📚 Concepts &amp; Decisions</div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why Python 3.12 + venv?</h3>
+          <p>The entire AI/ML ecosystem (LangChain, HuggingFace, Pinecone, FAISS) is Python-first. Node.js equivalents are poorly maintained ports. Python 3.12 adds ~5% perf over 3.11 and supports native <code>dict[str, str]</code> type hints without imports.</p>
+          <p><code>venv</code> over conda/poetry: built-in, zero install, universally understood. Conda manages system packages (overkill). Poetry is for publishing packages (not needed for an application).</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why RecursiveCharacterTextSplitter with chunk_size=600, overlap=100?</h3>
+          <p><strong>Why chunk at all?</strong> Embedding a 50,000-word document as one vector loses all specificity — "Python skills" would be buried and unretrievable.</p>
+          <p><strong>Why Recursive over Character/Token splitters?</strong> Tries separators in order: <code>\n\n</code> → <code>\n</code> → <code>. </code> → <code> </code>. Preserves semantic units (paragraphs → sentences) instead of splitting mechanically.</p>
+          <p><strong>Why 600 tokens?</strong> Too small (100-200) = too little context per chunk, LLM can't answer fully. Too large (1000+) = chunks cover multiple topics, retrieval gets noisy. 600 ≈ 3-5 paragraphs — specific enough to retrieve, rich enough to answer.</p>
+          <p><strong>Why overlap=100?</strong> Prevents key sentences from being split at chunk boundaries. End of chunk N is repeated at start of chunk N+1 — no information lost.</p>
+          <p><strong>Why tiktoken cl100k_base for length?</strong> LangChain defaults to character count. LLMs think in tokens. "tokenization" = 14 chars but only 4 tokens. tiktoken gives accurate token counts.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why SHA-256 dedup via ingestion_log.json?</h3>
+          <p>During development you'll run ingest many times. Without dedup, Pinecone fills with duplicate chunks → LLM sees the same text repeated → confused, noisy answers.</p>
+          <p>Alternative: query Pinecone to check if a vector exists. Problem: costs API calls, slower. SHA-256 hash of chunk content stored in a local JSON file is instant and free. Same content always produces the same hash (deterministic), and two different texts never collide in practice.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why keyword-based category tagging (not LLM classification)?</h3>
+          <p>Each chunk gets a <code>category</code> metadata field: skills / experience / education / personality / goals / hobbies / general. This enables filtered search (e.g. only search <code>category=skills</code> chunks when asked about skills).</p>
+          <p><strong>Why not LLM classification?</strong> Ingest runs once. An LLM call per chunk makes ingest 10-20× slower. Personal documents are structured enough that keyword matching is accurate. Fast, free, zero latency.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why BAAI/bge-large-en-v1.5 and why normalize_embeddings=True?</h3>
+          <p>BGE = Beijing Academy of AI. Consistently top-ranked on the MTEB (Massive Text Embedding Benchmark) leaderboard among open-source models. 1024 dimensions vs bge-small's 384 — richer vector space, better at subtle semantic distinctions ("Python developer" vs unrelated uses of the word).</p>
+          <p><strong>normalize_embeddings=True is critical.</strong> BGE was trained with cosine similarity as the distance metric. Cosine similarity requires all vectors to be on the unit sphere (magnitude = 1). Without normalization, you're computing the wrong distance → wrong retrieval results. This is a BGE-specific requirement.</p>
+          <table>
+            <tr><th>Model</th><th>Dimensions</th><th>MTEB Score</th><th>Cost</th></tr>
+            <tr><td>bge-small-en-v1.5</td><td>384</td><td>~63.0</td><td class="yes">Free, local</td></tr>
+            <tr><td>bge-large-en-v1.5</td><td>1024</td><td>~64.6</td><td class="yes">Free, local</td></tr>
+            <tr><td>text-embedding-3-small</td><td>1536</td><td>~62.3</td><td class="no">Paid API</td></tr>
+          </table>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why MMR retrieval over plain similarity search?</h3>
+          <p><strong>Problem with plain top-k:</strong> If a topic appears multiple times in your docs (common in ChatGPT exports), plain similarity returns near-identical chunks — wasting 3 of your 6 context slots on duplicates.</p>
+          <p><strong>MMR (Maximum Marginal Relevance)</strong> selects the next chunk based on: <code>λ × relevance_to_query − (1−λ) × similarity_to_already_selected</code></p>
+          <p><code>lambda_mult=0.7</code> = 70% relevance, 30% diversity. From <code>fetch_k=20</code> candidates, you get 6 chunks covering different aspects. Better context → better answers.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why temperature=0.3 for the LLM?</h3>
+          <p>Temperature controls randomness (0 = deterministic, 1 = creative). For a personal knowledge base you want factual accuracy, not creativity. 0.3 is low enough to keep answers grounded in the retrieved context, but not 0 (which causes robotic, repetitive phrasing). If this were a creative writing assistant, you'd use 0.7-0.9.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Why LangChain over raw API calls or LlamaIndex?</h3>
+          <p><strong>vs raw API calls:</strong> Without LangChain you manually write: embed the query, call the vector DB, format the prompt, inject history, parse the output, handle streaming. LangChain gives you composable building blocks. You focus on RAG logic, not plumbing.</p>
+          <p><strong>vs LlamaIndex:</strong> LlamaIndex is excellent but opinionated — works perfectly when you follow its patterns, gets painful when you customize. LangChain LCEL (the <code>|</code> pipe operator) gives explicit control over every step — better for learning because you can see the data flow at every stage.</p>
+        </div>
+
+        <div class="entry">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Full Phase 1 code flow (end-to-end)</h3>
+          <pre><code>You type: "What programming languages does Vigneshwar know?"
+          │
+          ▼
+chain.py → RunnableWithMessageHistory
+  → injects previous turns as chat_history
+          │
+          ▼
+MMR Retriever (vectorstore.py)
+  → embed question → 1024-dim vector
+  → Pinecone: fetch 20 candidates
+  → MMR re-rank: pick 6 diverse+relevant chunks
+          │
+          ▼
+6 chunks (e.g. "Vigneshwar is proficient in Python...")
+          │
+          ▼
+ChatPromptTemplate formats:
+  System: "Answer only from context. Don't make up facts."
+  History: [previous turns]
+  Human: "What programming languages..."
+  Context: [6 chunks]
+          │
+          ▼
+ChatOllama (llama3.1:8b, temp=0.3)
+  → reads context, generates grounded answer
+          │
+          ▼
+"Vigneshwar knows Python, SQL, and AWS..."
++ sources: ["data/raw/chatgpt_export.txt"]</code></pre>
+        </div>
+
+      </div><!-- /subsection -->
+
+      <div class="subsection">
+        <div class="subsection-title">❓ Questions Asked &amp; Explored</div>
+        <div class="entry qa">
+          <div class="entry-date">2026-07-29</div>
+          <h3>Which production embedding model should I use for learning?</h3>
+          <p><strong>Recommendation:</strong> Pinecone for vector DB (industry-standard, free tier). For embeddings, stick with bge-large locally — it's free and competitive. For the LLM, OpenAI GPT-4o-mini is the production standard if you want paid experience ($5 free credit on signup).</p>
+          <p>Swapping any component in this project is just an env var change — the LangChain abstraction means zero code changes when moving from Ollama to OpenAI.</p>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <div class="subsection-title">⚡ Gotchas &amp; Surprises</div>
+        <div class="entry gotcha">
+          <div class="entry-date">2026-07-29</div>
+          <h3>bge models REQUIRE normalize_embeddings=True</h3>
+          <p>Forgetting this flag produces incorrect cosine similarity scores. Retrieval will return wrong chunks — the bug is silent (no error, just bad answers). Always set <code>encode_kwargs={"normalize_embeddings": True}</code> when using any BGE model.</p>
+        </div>
+        <div class="entry gotcha">
+          <div class="entry-date">2026-07-29</div>
+          <h3>LangChain defaults to character count for chunk size, not tokens</h3>
+          <p>Without passing a custom <code>length_function</code>, <code>RecursiveCharacterTextSplitter(chunk_size=600)</code> means 600 characters — roughly 150 tokens. Always pass <code>length_function=lambda t: len(tiktoken.get_encoding("cl100k_base").encode(t))</code> for accurate token-based chunking.</p>
+        </div>
+      </div>
+
+    </div><!-- /phase-body -->
+  </div><!-- /phase -->
+
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 2 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>💬</span>
+      <h2>Phase 2 — Conversational Memory</h2>
+      <span class="phase-badge badge-pending">Pending</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <p style="color:var(--muted); font-size:0.9rem;">Entries will be added when this phase is started.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 3 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>📊</span>
+      <h2>Phase 3 — RAGAs Evaluation Pipeline</h2>
+      <span class="phase-badge badge-pending">Pending</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <p style="color:var(--muted); font-size:0.9rem;">Entries will be added when this phase is started.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 4 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>🌐</span>
+      <h2>Phase 4 — FastAPI + Streamlit UI</h2>
+      <span class="phase-badge badge-pending">Pending</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <p style="color:var(--muted); font-size:0.9rem;">Entries will be added when this phase is started.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 5 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>🔭</span>
+      <h2>Phase 5 — Observability (LangFuse + Prometheus)</h2>
+      <span class="phase-badge badge-pending">Pending</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <p style="color:var(--muted); font-size:0.9rem;">Entries will be added when this phase is started.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ PHASE 6 ══ -->
+  <div class="phase">
+    <div class="phase-header" onclick="toggle(this)">
+      <span>🚀</span>
+      <h2>Phase 6 — Docker + CI/CD + Cloud Deploy</h2>
+      <span class="phase-badge badge-pending">Pending</span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="phase-body">
+      <p style="color:var(--muted); font-size:0.9rem;">Entries will be added when this phase is started.</p>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  function toggle(header) {
+    const body = header.nextElementSibling;
+    const chevron = header.querySelector('.chevron');
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+  }
+</script>
+</body>
+</html>
